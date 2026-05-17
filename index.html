@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="PoolBid Designer — AI-assisted bid-phase design tool for California swimming pool contractors. Convert hand sketches and property addresses into professional preliminary drawing packages." />
+  <title>PoolBid Designer — Swimming Pool Contractor Tools</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Top Navigation -->
+  <header class="topnav" role="banner">
+    <div class="topnav-inner">
+      <div class="brand" aria-label="PoolBid Designer home">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <defs>
+            <linearGradient id="poolGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#36c9f1" />
+              <stop offset="100%" stop-color="#0a6fb8" />
+            </linearGradient>
+          </defs>
+          <rect x="2" y="6" width="28" height="20" rx="3" fill="url(#poolGrad)" />
+          <path d="M4 22 Q8 18 12 22 T20 22 T28 22" stroke="#fff" stroke-width="1.6" fill="none" opacity="0.8" />
+          <path d="M4 18 Q8 14 12 18 T20 18 T28 18" stroke="#fff" stroke-width="1.6" fill="none" opacity="0.5" />
+        </svg>
+        <div class="brand-text">
+          <span class="brand-name">PoolBid Designer</span>
+          <span class="brand-sub">Swimming Pool Contractor Tools</span>
+        </div>
+      </div>
+
+      <nav class="topnav-actions" aria-label="Primary">
+        <button id="btn-new-project" class="btn btn-primary" type="button">
+          <span class="btn-icon" aria-hidden="true">+</span> New Project
+        </button>
+        <button id="btn-projects" class="btn btn-secondary" type="button" aria-haspopup="dialog">
+          <span class="btn-icon" aria-hidden="true">⊞</span> Projects
+        </button>
+        <button id="btn-help" class="btn btn-ghost" type="button" aria-haspopup="dialog" aria-label="Help and about">?</button>
+      </nav>
+    </div>
+
+    <!-- Preliminary disclaimer banner -->
+    <div class="banner banner-info" role="note">
+      <strong>Preliminary bid-phase tool.</strong> Outputs are not final engineered or permit drawings. Final legal, engineering, permitting, and AHJ approval remain the contractor's responsibility.
+    </div>
+  </header>
+
+  <!-- Project context bar -->
+  <div id="project-bar" class="project-bar" aria-live="polite">
+    <div class="project-bar-inner">
+      <div class="project-meta">
+        <span class="project-label">Active Project:</span>
+        <span id="active-project-name" class="project-name">No project loaded</span>
+        <span id="active-project-rev" class="project-rev"></span>
+      </div>
+      <div class="project-actions">
+        <button id="btn-save-revision" class="btn btn-small" type="button" disabled>Save Revision</button>
+        <button id="btn-export" class="btn btn-small btn-primary" type="button" disabled>Export Package</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stepper / workflow nav -->
+  <nav class="stepper" aria-label="Workflow steps" id="stepper">
+    <ol class="stepper-list">
+      <li><button class="step active" data-step="setup" type="button"><span class="step-num">1</span><span class="step-label">Project Setup</span></button></li>
+      <li><button class="step" data-step="sketch" type="button" disabled><span class="step-num">2</span><span class="step-label">Sketch</span></button></li>
+      <li><button class="step" data-step="site" type="button" disabled><span class="step-num">3</span><span class="step-label">Site &amp; Aerial</span></button></li>
+      <li><button class="step" data-step="design" type="button" disabled><span class="step-num">4</span><span class="step-label">Design</span></button></li>
+      <li><button class="step" data-step="3d" type="button" disabled><span class="step-num">5</span><span class="step-label">3D View</span></button></li>
+      <li><button class="step" data-step="concerns" type="button" disabled><span class="step-num">6</span><span class="step-label">Concerns</span></button></li>
+      <li><button class="step" data-step="export" type="button" disabled><span class="step-num">7</span><span class="step-label">Export</span></button></li>
+    </ol>
+  </nav>
+
+  <!-- Main workspace -->
+  <main id="main-content" class="workspace" tabindex="-1">
+
+    <!-- Landing / welcome -->
+    <section id="view-welcome" class="view view-active" aria-labelledby="welcome-title">
+      <div class="welcome">
+        <h1 id="welcome-title">Bid-phase design assistant for California pool contractors</h1>
+        <p class="welcome-sub">Convert a hand sketch and a property address into a professional preliminary drawing package — site plan, aerial overlay, pool geometry, 3D view, and a separate California concern review.</p>
+
+        <div class="welcome-cards">
+          <button class="card card-action" id="card-new" type="button">
+            <div class="card-icon">+</div>
+            <h3>Start a new project</h3>
+            <p>Begin from a client address and a sketch upload. Generate a complete bid package in minutes.</p>
+          </button>
+          <button class="card card-action" id="card-open" type="button">
+            <div class="card-icon">⊞</div>
+            <h3>Open existing project</h3>
+            <p>Resume work, duplicate a project to test alternatives, or review an exported revision.</p>
+          </button>
+          <button class="card card-action" id="card-demo" type="button">
+            <div class="card-icon">★</div>
+            <h3>Load sample project</h3>
+            <p>Walk through the full workflow with a pre-populated California residential project.</p>
+          </button>
+        </div>
+
+        <div class="welcome-features" aria-label="Key features">
+          <div class="feature"><strong>Single source of truth.</strong> Every sheet, overlay, and concern is generated from one editable parametric model.</div>
+          <div class="feature"><strong>Confidence-aware AI.</strong> Sketch interpretation surfaces low-confidence features for human review before they reach the customer.</div>
+          <div class="feature"><strong>California compliance lens.</strong> Surfaces Swimming Pool Safety Act, setback, drainage, and AHJ-coverage concerns — without claiming permit approval.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step: Project Setup -->
+    <section id="view-setup" class="view" aria-labelledby="setup-title">
+      <header class="view-header">
+        <h2 id="setup-title">Project Setup</h2>
+        <p class="view-desc">Capture client identity and project location. The address drives geocoding and aerial overlay in later steps.</p>
+      </header>
+
+      <form id="form-setup" class="form-grid" novalidate>
+        <div class="field">
+          <label for="f-client">Client name <span class="req" aria-hidden="true">*</span></label>
+          <input id="f-client" name="client" type="text" autocomplete="name" required aria-required="true" />
+          <small class="field-help">First and last name as you want it on the proposal title block.</small>
+        </div>
+        <div class="field">
+          <label for="f-estimator">Estimator</label>
+          <input id="f-estimator" name="estimator" type="text" autocomplete="off" placeholder="e.g. Rich Summers" />
+        </div>
+        <div class="field field-full">
+          <label for="f-address">Project street address <span class="req" aria-hidden="true">*</span></label>
+          <input id="f-address" name="address" type="text" autocomplete="street-address" required aria-required="true" placeholder="e.g. 1234 Easy Lane, Galt, CA 95632" />
+          <small class="field-help">Used to geocode the lot and retrieve aerial imagery. Verified later in the Site step.</small>
+        </div>
+        <div class="field">
+          <label for="f-apn">APN / parcel number</label>
+          <input id="f-apn" name="apn" type="text" autocomplete="off" placeholder="optional" />
+        </div>
+        <div class="field">
+          <label for="f-pooltype">Pool type</label>
+          <select id="f-pooltype" name="poolType">
+            <option value="gunite">Gunite / shotcrete</option>
+            <option value="fiberglass">Fiberglass shell</option>
+            <option value="vinyl">Vinyl liner</option>
+          </select>
+        </div>
+        <div class="field field-full">
+          <label for="f-notes">Contractor notes</label>
+          <textarea id="f-notes" name="notes" rows="3" placeholder="Approximate dimensions, deck preferences, equipment notes, known site constraints…"></textarea>
+        </div>
+
+        <div class="form-actions field-full">
+          <button class="btn btn-secondary" type="button" id="btn-cancel-setup">Cancel</button>
+          <button class="btn btn-primary" type="submit">Continue to Sketch →</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Step: Sketch upload + interpretation -->
+    <section id="view-sketch" class="view" aria-labelledby="sketch-title">
+      <header class="view-header">
+        <h2 id="sketch-title">Sketch Upload &amp; Interpretation</h2>
+        <p class="view-desc">Upload a photo of your hand sketch. The system extracts a draft parametric model — you confirm uncertain features before they reach the customer drawings.</p>
+      </header>
+
+      <div class="split">
+        <div class="split-left">
+          <div class="dropzone" id="dropzone" tabindex="0" aria-label="Sketch upload area. Click or drag image here.">
+            <input type="file" id="sketch-file" accept="image/png,image/jpeg,image/jpg,image/heic,image/webp" hidden />
+            <div class="dropzone-empty" id="dropzone-empty">
+              <div class="dropzone-icon" aria-hidden="true">📷</div>
+              <p><strong>Drop a sketch photo here</strong> or click to select</p>
+              <small>JPG, PNG, HEIC, or WebP — up to ~10 MB.</small>
+              <button class="btn btn-secondary" type="button" id="btn-load-demo-sketch">Use sample sketch</button>
+            </div>
+            <div class="dropzone-preview" id="dropzone-preview" hidden>
+              <img id="sketch-img" alt="Uploaded sketch preview" />
+              <div class="dropzone-tools">
+                <button class="btn btn-small" type="button" id="btn-sketch-rotate">⟳ Rotate</button>
+                <button class="btn btn-small" type="button" id="btn-sketch-replace">Replace</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="ai-actions">
+            <button class="btn btn-primary" id="btn-interpret" type="button" disabled>Interpret Sketch</button>
+            <small class="muted">AI-assisted interpretation. Heuristic in this preview build; production version uses a trained CV pipeline with confidence scoring.</small>
+          </div>
+        </div>
+
+        <div class="split-right">
+          <h3>Interpreted features</h3>
+          <p class="muted small">Confirm or correct each feature. Low-confidence items are flagged for your review.</p>
+          <ul id="feature-list" class="feature-list" aria-live="polite">
+            <li class="feature-empty">No interpretation yet. Upload a sketch and run interpretation.</li>
+          </ul>
+
+          <div class="form-actions">
+            <button class="btn btn-secondary" type="button" data-goto="setup">← Back</button>
+            <button class="btn btn-primary" type="button" id="btn-sketch-continue" disabled>Continue to Site →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step: Geospatial / Aerial overlay -->
+    <section id="view-site" class="view" aria-labelledby="site-title">
+      <header class="view-header">
+        <h2 id="site-title">Site &amp; Aerial Overlay</h2>
+        <p class="view-desc">Geocoded address plus an interactive aerial map. Place and rotate the proposed pool concept relative to the property.</p>
+      </header>
+
+      <div class="site-controls" role="toolbar" aria-label="Map tools">
+        <button class="btn btn-small" id="btn-geocode" type="button">Geocode address</button>
+        <button class="btn btn-small" id="btn-toggle-aerial" type="button">Toggle aerial / map</button>
+        <button class="btn btn-small" id="btn-place-pool" type="button">Place pool here</button>
+        <label class="inline-field">
+          Pool rotation
+          <input id="pool-rotation" type="range" min="0" max="359" value="0" step="1" />
+          <output id="pool-rotation-out">0°</output>
+        </label>
+        <span id="imagery-status" class="muted small">No imagery loaded</span>
+      </div>
+
+      <div id="map" class="map-canvas" role="region" aria-label="Site map"></div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-goto="sketch">← Back</button>
+        <button class="btn btn-primary" type="button" data-goto="design">Continue to Design →</button>
+      </div>
+    </section>
+
+    <!-- Step: 2D Plan editor -->
+    <section id="view-design" class="view" aria-labelledby="design-title">
+      <header class="view-header">
+        <h2 id="design-title">Pool Design — Plan View</h2>
+        <p class="view-desc">Edit the parametric pool shell, spa, steps, equipment pad, and decking. Dimensions update live.</p>
+      </header>
+
+      <div class="design-layout">
+        <aside class="design-side" aria-label="Design properties">
+          <h3>Pool</h3>
+          <div class="field"><label for="d-shape">Shape</label>
+            <select id="d-shape">
+              <option value="rectangle">Rectangle</option>
+              <option value="freeform">Freeform</option>
+              <option value="kidney">Kidney</option>
+              <option value="lshape">L-shape</option>
+            </select>
+          </div>
+          <div class="row">
+            <div class="field"><label for="d-length">Length (ft)</label><input id="d-length" type="number" min="8" max="60" step="0.5" value="30" /></div>
+            <div class="field"><label for="d-width">Width (ft)</label><input id="d-width" type="number" min="6" max="40" step="0.5" value="15" /></div>
+          </div>
+          <div class="row">
+            <div class="field"><label for="d-shallow">Shallow depth (ft)</label><input id="d-shallow" type="number" min="3" max="6" step="0.1" value="3.5" /></div>
+            <div class="field"><label for="d-deep">Deep depth (ft)</label><input id="d-deep" type="number" min="3.5" max="10" step="0.1" value="6" /></div>
+          </div>
+
+          <h3>Features</h3>
+          <label class="checkbox"><input type="checkbox" id="d-spa" /> Attached spa</label>
+          <label class="checkbox"><input type="checkbox" id="d-steps" checked /> Entry steps</label>
+          <label class="checkbox"><input type="checkbox" id="d-bench" /> Bench seat</label>
+          <label class="checkbox"><input type="checkbox" id="d-shelf" /> Baja shelf</label>
+          <label class="checkbox"><input type="checkbox" id="d-water" /> Water feature</label>
+
+          <h3>Decking</h3>
+          <div class="field"><label for="d-deck-mat">Material</label>
+            <select id="d-deck-mat">
+              <option value="concrete">Broom concrete</option>
+              <option value="pavers">Pavers</option>
+              <option value="travertine">Travertine</option>
+              <option value="stamped">Stamped concrete</option>
+            </select>
+          </div>
+          <div class="field"><label for="d-deck-width">Avg. deck width (ft)</label><input id="d-deck-width" type="number" min="0" max="20" step="0.5" value="4" /></div>
+
+          <h3>Safety features <span class="badge badge-info" title="California Swimming Pool Safety Act">CA SPSA</span></h3>
+          <label class="checkbox"><input type="checkbox" class="safety" value="fence" /> Isolation fence (≥60") with self-closing/latching gate</label>
+          <label class="checkbox"><input type="checkbox" class="safety" value="cover" /> Approved safety pool cover</label>
+          <label class="checkbox"><input type="checkbox" class="safety" value="door-alarm" /> Exit alarms on home doors to pool</label>
+          <label class="checkbox"><input type="checkbox" class="safety" value="self-closing-doors" /> Self-closing/latching home doors</label>
+          <label class="checkbox"><input type="checkbox" class="safety" value="pool-alarm" /> In-pool surface motion alarm</label>
+          <label class="checkbox"><input type="checkbox" class="safety" value="removable-mesh" /> Removable mesh barrier with gate</label>
+          <label class="checkbox"><input type="checkbox" class="safety" value="other" /> Other approved means</label>
+
+          <h3>Setbacks (informational)</h3>
+          <div class="row">
+            <div class="field"><label for="d-set-pl">Property line (ft)</label><input id="d-set-pl" type="number" min="0" step="0.5" value="5" /></div>
+            <div class="field"><label for="d-set-house">House (ft)</label><input id="d-set-house" type="number" min="0" step="0.5" value="10" /></div>
+          </div>
+          <small class="muted">Local setbacks vary by AHJ. Verify with city/county code.</small>
+        </aside>
+
+        <div class="design-canvas-wrap">
+          <div class="canvas-toolbar" role="toolbar" aria-label="Plan editor tools">
+            <button class="btn btn-small" id="btn-fit-plan" type="button">Fit to view</button>
+            <button class="btn btn-small" id="btn-toggle-grid" type="button">Toggle grid</button>
+            <button class="btn btn-small" id="btn-toggle-dims" type="button">Toggle dimensions</button>
+            <span class="muted small" id="plan-scale">Scale: 1" = 4'</span>
+          </div>
+          <svg id="plan-svg" class="plan-svg" role="img" aria-label="Site plan editor"></svg>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-goto="site">← Back</button>
+        <button class="btn btn-primary" type="button" data-goto="3d">Continue to 3D View →</button>
+      </div>
+    </section>
+
+    <!-- Step: 3D isometric -->
+    <section id="view-3d" class="view" aria-labelledby="iso-title">
+      <header class="view-header">
+        <h2 id="iso-title">Isometric / 3D View</h2>
+        <p class="view-desc">Customer-facing visualization generated from the same parametric model. Orbit and zoom to find your hero shot.</p>
+      </header>
+
+      <div class="three-toolbar" role="toolbar" aria-label="3D camera tools">
+        <button class="btn btn-small" id="btn-cam-iso" type="button">Isometric</button>
+        <button class="btn btn-small" id="btn-cam-top" type="button">Top</button>
+        <button class="btn btn-small" id="btn-cam-front" type="button">Front</button>
+        <button class="btn btn-small" id="btn-cam-hero" type="button">Hero angle</button>
+        <button class="btn btn-small" id="btn-three-shot" type="button">Capture rendering</button>
+      </div>
+      <div id="three-canvas" class="three-canvas" role="region" aria-label="3D pool design preview"></div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-goto="design">← Back</button>
+        <button class="btn btn-primary" type="button" data-goto="concerns">Continue to Concerns →</button>
+      </div>
+    </section>
+
+    <!-- Step: Concerns -->
+    <section id="view-concerns" class="view" aria-labelledby="concerns-title">
+      <header class="view-header">
+        <h2 id="concerns-title">California Concern Review</h2>
+        <p class="view-desc">Internal screening. Concerns are not embedded in customer drawings unless intentionally exported. Each finding includes severity, source, confidence, and recommended action.</p>
+      </header>
+
+      <div class="concerns-summary" id="concerns-summary" role="status" aria-live="polite"></div>
+
+      <div class="concerns-toolbar">
+        <label class="inline-field"><input type="checkbox" id="filter-hard" checked /> Hard Fail</label>
+        <label class="inline-field"><input type="checkbox" id="filter-warn" checked /> Warning</label>
+        <label class="inline-field"><input type="checkbox" id="filter-adv" checked /> Advisory</label>
+        <label class="inline-field"><input type="checkbox" id="filter-unknown" checked /> Unknown / Data needed</label>
+        <button class="btn btn-small" id="btn-rerun-rules" type="button">Re-run rules</button>
+      </div>
+
+      <div id="concerns-list" class="concerns-list" aria-label="Concern findings"></div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-goto="3d">← Back</button>
+        <button class="btn btn-primary" type="button" data-goto="export">Continue to Export →</button>
+      </div>
+    </section>
+
+    <!-- Step: Export -->
+    <section id="view-export" class="view" aria-labelledby="export-title">
+      <header class="view-header">
+        <h2 id="export-title">Export Bid Package</h2>
+        <p class="view-desc">Generate a professional PDF package suitable for customer review. The concern report is exported separately and not included in customer-facing sheets by default.</p>
+      </header>
+
+      <div class="export-grid">
+        <div class="export-card">
+          <h3>Customer drawing package</h3>
+          <ul class="sheetlist">
+            <li><label class="checkbox"><input type="checkbox" class="sheet" data-sheet="cover" checked> Cover / Summary sheet</label></li>
+            <li><label class="checkbox"><input type="checkbox" class="sheet" data-sheet="site" checked> Site Plan</label></li>
+            <li><label class="checkbox"><input type="checkbox" class="sheet" data-sheet="vicinity" checked> Vicinity / Aerial Overlay</label></li>
+            <li><label class="checkbox"><input type="checkbox" class="sheet" data-sheet="pool" checked> Pool Geometry Plan</label></li>
+            <li><label class="checkbox"><input type="checkbox" class="sheet" data-sheet="details" checked> Details Sheet</label></li>
+            <li><label class="checkbox"><input type="checkbox" class="sheet" data-sheet="iso" checked> Isometric / 3D View</label></li>
+          </ul>
+          <button class="btn btn-primary" id="btn-export-customer" type="button">Generate customer PDF</button>
+        </div>
+        <div class="export-card">
+          <h3>Internal review report</h3>
+          <p class="muted small">Separate document. Includes all concerns and dispositions. Not for customer release.</p>
+          <button class="btn btn-secondary" id="btn-export-concerns" type="button">Generate concern report PDF</button>
+        </div>
+        <div class="export-card">
+          <h3>Project archive (JSON)</h3>
+          <p class="muted small">Full parametric model + revision metadata. Re-importable in this tool.</p>
+          <button class="btn btn-ghost" id="btn-export-json" type="button">Download project JSON</button>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-goto="concerns">← Back</button>
+        <button class="btn btn-primary" type="button" id="btn-finish">Finish &amp; mark revision exported</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Projects modal -->
+  <div class="modal" id="modal-projects" role="dialog" aria-modal="true" aria-labelledby="modal-projects-title" hidden>
+    <div class="modal-inner">
+      <header class="modal-head">
+        <h2 id="modal-projects-title">Your projects</h2>
+        <button class="btn btn-ghost" data-close-modal type="button" aria-label="Close">✕</button>
+      </header>
+      <div class="modal-body">
+        <ul id="project-list" class="project-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help modal -->
+  <div class="modal" id="modal-help" role="dialog" aria-modal="true" aria-labelledby="modal-help-title" hidden>
+    <div class="modal-inner">
+      <header class="modal-head">
+        <h2 id="modal-help-title">About PoolBid Designer</h2>
+        <button class="btn btn-ghost" data-close-modal type="button" aria-label="Close">✕</button>
+      </header>
+      <div class="modal-body">
+        <p>PoolBid Designer is a bid-phase design assistant for California pool contractors. It transforms a hand sketch and a property address into a structured parametric model — then generates a professional preliminary drawing package and a separate California concern review.</p>
+
+        <h3>Workflow</h3>
+        <ol class="numbered">
+          <li><strong>Project Setup</strong> — capture client and address.</li>
+          <li><strong>Sketch</strong> — upload a sketch and confirm interpreted features.</li>
+          <li><strong>Site &amp; Aerial</strong> — geocode the lot, place the pool on the aerial map.</li>
+          <li><strong>Design</strong> — edit pool shell, features, decking, safety features, and setbacks.</li>
+          <li><strong>3D View</strong> — orbit the model for the customer hero rendering.</li>
+          <li><strong>Concerns</strong> — review findings for safety, setbacks, drainage, AHJ coverage.</li>
+          <li><strong>Export</strong> — generate the bid package PDF + a separate internal concern PDF.</li>
+        </ol>
+
+        <h3>Keyboard shortcuts</h3>
+        <ul>
+          <li><kbd>Esc</kbd> — close modals</li>
+          <li><kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd> — move between workflow steps</li>
+          <li><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>S</kbd> — save current revision</li>
+        </ul>
+
+        <h3>Important limitations</h3>
+        <p class="muted small">This is a preliminary/bid-phase tool. It does not produce engineered or permit-ready drawings. Final approval remains with the local authority having jurisdiction. The application uses heuristic sketch interpretation; in production this is replaced by a trained CV pipeline. Aerial imagery shown is from OpenStreetMap-licensed sources and should be verified for currency before customer presentation.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toasts" class="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- Loading overlay -->
+  <div id="loading" class="loading" hidden role="status" aria-live="polite">
+    <div class="loading-inner">
+      <div class="spinner" aria-hidden="true"></div>
+      <div id="loading-msg">Working…</div>
+    </div>
+  </div>
+
+  <footer class="appfoot">
+    <div>PoolBid Designer · Preliminary bid-phase tool · <a href="https://github.com/richsums/Swimming-Pool-Contractor-Tools" target="_blank" rel="noopener">Source on GitHub</a></div>
+    <div class="muted small">© 2026 · Built for California C-53 pool contractors · v1.0</div>
+  </footer>
+
+  <!-- Library dependencies via CDN. Loaded as modules where possible. -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- App modules -->
+  <script src="js/utils.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/sketch.js"></script>
+  <script src="js/geospatial.js"></script>
+  <script src="js/editor2d.js"></script>
+  <script src="js/editor3d.js"></script>
+  <script src="js/rules.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
