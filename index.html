@@ -74,8 +74,9 @@
       <li><button class="step" data-step="site" type="button" disabled><span class="step-num">3</span><span class="step-label">Site &amp; Aerial</span></button></li>
       <li><button class="step" data-step="design" type="button" disabled><span class="step-num">4</span><span class="step-label">Design</span></button></li>
       <li><button class="step" data-step="3d" type="button" disabled><span class="step-num">5</span><span class="step-label">3D View</span></button></li>
-      <li><button class="step" data-step="concerns" type="button" disabled><span class="step-num">6</span><span class="step-label">Concerns</span></button></li>
-      <li><button class="step" data-step="export" type="button" disabled><span class="step-num">7</span><span class="step-label">Export</span></button></li>
+      <li><button class="step" data-step="plumbing" type="button" disabled><span class="step-num">6</span><span class="step-label">Plumbing</span></button></li>
+      <li><button class="step" data-step="concerns" type="button" disabled><span class="step-num">7</span><span class="step-label">Concerns</span></button></li>
+      <li><button class="step" data-step="export" type="button" disabled><span class="step-num">8</span><span class="step-label">Export</span></button></li>
     </ol>
   </nav>
 
@@ -331,6 +332,234 @@
 
       <div class="form-actions">
         <button class="btn btn-secondary" type="button" data-goto="design">← Back</button>
+        <button class="btn btn-primary" type="button" data-goto="plumbing">Continue to Plumbing →</button>
+      </div>
+    </section>
+
+    <!-- Step: Plumbing Visualizer -->
+    <section id="view-plumbing" class="view" aria-labelledby="plumbing-title">
+      <header class="view-header">
+        <h2 id="plumbing-title">Plumbing Visualizer</h2>
+        <p class="view-desc">Drag components onto the canvas, click ports to draw pipes, and run the system to animate flow. Toggle the pump, switch valves, and try backwash to identify layout issues before excavation.</p>
+      </header>
+
+      <div class="plumbing-layout">
+        <!-- Left: Palette -->
+        <aside class="plumb-palette" aria-label="Component palette">
+          <h3>Components</h3>
+          <p class="muted small">Drag onto the canvas. Click a port (colored dot), then click another port to connect.</p>
+
+          <div class="palette-section">
+            <h4>Sources</h4>
+            <div class="palette-grid">
+              <div class="palette-item" draggable="true" data-type="skimmer" title="Skimmer">
+                <svg viewBox="-30 -22 60 44" width="56" height="40">
+                  <rect x="-28" y="-19" width="56" height="38" rx="6" fill="#cfe7f2" stroke="#0a6fb8" stroke-width="1.6"/>
+                  <circle cx="0" cy="-4" r="9" fill="#fff" stroke="#0a6fb8" stroke-width="1.4"/>
+                </svg>
+                <span>Skimmer</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="mainDrain" title="Main Drain (VGB)">
+                <svg viewBox="-22 -22 44 44" width="44" height="44">
+                  <circle cx="0" cy="0" r="18" fill="#cfe7f2" stroke="#0a6fb8" stroke-width="1.6"/>
+                  <circle cx="-8" cy="0" r="3" fill="#0a6fb8"/>
+                  <circle cx="8" cy="0" r="3" fill="#0a6fb8"/>
+                </svg>
+                <span>Main Drain</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="spaDrain" title="Spa Drain">
+                <svg viewBox="-24 -16 48 32" width="44" height="30">
+                  <rect x="-22" y="-14" width="44" height="28" rx="4" fill="#cfe7f2" stroke="#0a6fb8" stroke-width="1.6"/>
+                </svg>
+                <span>Spa Drain</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="autofill" title="Auto Fill">
+                <svg viewBox="-24 -14 48 28" width="44" height="26">
+                  <rect x="-22" y="-10" width="44" height="20" rx="3" fill="#fefce8" stroke="#a16207" stroke-width="1.4"/>
+                </svg>
+                <span>Auto Fill</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="palette-section">
+            <h4>Equipment</h4>
+            <div class="palette-grid">
+              <div class="palette-item" draggable="true" data-type="pump" title="Variable-speed pump">
+                <svg viewBox="-42 -30 84 60" width="72" height="50">
+                  <rect x="-40" y="-26" width="80" height="50" rx="6" fill="#fde7d8" stroke="#b45309" stroke-width="1.6"/>
+                  <circle cx="-10" cy="-2" r="14" fill="#fff" stroke="#b45309" stroke-width="1.4"/>
+                </svg>
+                <span>Pump</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="filter" title="Cartridge/DE/Sand filter">
+                <svg viewBox="-24 -34 48 68" width="44" height="58">
+                  <rect x="-22" y="-30" width="44" height="56" rx="22" fill="#e5e9f0" stroke="#5a6b81" stroke-width="1.6"/>
+                </svg>
+                <span>Filter</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="heater" title="Gas heater / heat pump">
+                <svg viewBox="-34 -30 68 60" width="60" height="50">
+                  <rect x="-32" y="-26" width="64" height="50" rx="4" fill="#fff" stroke="#b91c1c" stroke-width="1.6"/>
+                  <path d="M -20 8 Q -16 -4 -12 8 Q -8 -4 -4 8 Q 0 -4 4 8 Q 8 -4 12 8 Q 16 -4 20 8" fill="none" stroke="#b91c1c" stroke-width="1.4"/>
+                </svg>
+                <span>Heater</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="saltCell" title="Salt chlorine generator">
+                <svg viewBox="-34 -18 68 36" width="60" height="32">
+                  <rect x="-32" y="-15" width="64" height="30" rx="14" fill="#e6f6f1" stroke="#15803d" stroke-width="1.6"/>
+                </svg>
+                <span>Salt Cell</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="uv" title="UV sterilizer">
+                <svg viewBox="-34 -14 68 28" width="60" height="26">
+                  <rect x="-32" y="-12" width="64" height="24" rx="3" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.6"/>
+                </svg>
+                <span>UV</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="palette-section">
+            <h4>Valves</h4>
+            <div class="palette-grid">
+              <div class="palette-item" draggable="true" data-type="multiportValve" title="Multiport valve (filter/backwash/rinse/recirculate/waste)">
+                <svg viewBox="-24 -24 48 48" width="44" height="44">
+                  <circle cx="0" cy="0" r="22" fill="#fff" stroke="#14253b" stroke-width="1.8"/>
+                  <circle cx="0" cy="0" r="12" fill="#e6ebf2" stroke="#14253b" stroke-width="1.2"/>
+                </svg>
+                <span>MPV</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="valve3way" title="3-way diverter valve">
+                <svg viewBox="-20 -20 40 40" width="40" height="40">
+                  <rect x="-18" y="-18" width="36" height="36" rx="6" fill="#fff" stroke="#14253b" stroke-width="1.6"/>
+                  <path d="M -16 0 L 0 0 L 0 -16" fill="none" stroke="#14253b" stroke-width="2.2"/>
+                </svg>
+                <span>3-Way</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="valve2way" title="2-way ball valve">
+                <svg viewBox="-20 -14 40 28" width="40" height="26">
+                  <rect x="-18" y="-10" width="36" height="20" rx="4" fill="#fff" stroke="#14253b" stroke-width="1.6"/>
+                  <circle cx="0" cy="0" r="6" fill="#14253b"/>
+                </svg>
+                <span>2-Way</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="checkValve" title="Check valve">
+                <svg viewBox="-22 -14 44 28" width="44" height="26">
+                  <rect x="-20" y="-10" width="40" height="20" rx="3" fill="#fff" stroke="#14253b" stroke-width="1.4"/>
+                  <path d="M 4 -5 L 8 0 L 4 5 Z" fill="#14253b"/>
+                </svg>
+                <span>Check</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="palette-section">
+            <h4>Returns &amp; Features</h4>
+            <div class="palette-grid">
+              <div class="palette-item" draggable="true" data-type="return" title="Wall return">
+                <svg viewBox="-20 -16 40 32" width="40" height="30">
+                  <rect x="-18" y="-12" width="36" height="24" rx="4" fill="#dcf2fb" stroke="#0a6fb8" stroke-width="1.6"/>
+                  <circle cx="0" cy="0" r="5" fill="#0a6fb8"/>
+                </svg>
+                <span>Return</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="laminarJet" title="Laminar deck jet">
+                <svg viewBox="-22 -22 44 44" width="40" height="40">
+                  <rect x="-20" y="-14" width="40" height="22" rx="3" fill="#e0f2fe" stroke="#0a6fb8" stroke-width="1.6"/>
+                  <path d="M -10 10 Q -5 20 0 26 Q 5 20 10 10" fill="none" stroke="#0a6fb8" stroke-width="1.6"/>
+                </svg>
+                <span>Laminar</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="spaJet" title="Spa jet">
+                <svg viewBox="-16 -16 32 32" width="32" height="32">
+                  <circle cx="0" cy="0" r="13" fill="#dcf2fb" stroke="#0a6fb8" stroke-width="1.6"/>
+                  <circle cx="0" cy="0" r="5" fill="#0a6fb8"/>
+                </svg>
+                <span>Spa Jet</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="waterfall" title="Waterfall / sheer descent">
+                <svg viewBox="-28 -22 56 44" width="50" height="40">
+                  <rect x="-26" y="-14" width="52" height="22" rx="3" fill="#e0f2fe" stroke="#0a6fb8" stroke-width="1.6"/>
+                  <path d="M -20 10 L -10 22 M -10 10 L 0 22 M 0 10 L 10 22 M 10 10 L 20 22" stroke="#0a6fb8" stroke-width="1.4"/>
+                </svg>
+                <span>Waterfall</span>
+              </div>
+              <div class="palette-item" draggable="true" data-type="wasteLine" title="Waste / deck drain">
+                <svg viewBox="-28 -14 56 28" width="50" height="26">
+                  <rect x="-26" y="-10" width="52" height="20" rx="3" fill="#fee2e2" stroke="#b91c1c" stroke-width="1.4"/>
+                </svg>
+                <span>Waste</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="palette-section">
+            <h4>Sample layout</h4>
+            <button class="btn btn-small btn-secondary" id="btn-plumb-sample" type="button">Load standard single-pump setup</button>
+            <button class="btn btn-small btn-ghost" id="btn-plumb-clear" type="button">Clear plumbing</button>
+          </div>
+        </aside>
+
+        <!-- Center: Canvas + controls -->
+        <div class="plumb-canvas-wrap">
+          <div class="plumb-controls" role="toolbar" aria-label="System controls">
+            <button class="btn btn-primary" id="btn-pump" type="button">
+              <span id="pump-state-dot" class="state-dot off" aria-hidden="true"></span>
+              <span id="pump-state-label">Pump Off</span>
+            </button>
+            <div class="control-group">
+              <span class="control-label">MPV Mode:</span>
+              <button class="btn btn-small" data-mpv="filter">Filter</button>
+              <button class="btn btn-small" data-mpv="backwash">Backwash</button>
+              <button class="btn btn-small" data-mpv="rinse">Rinse</button>
+              <button class="btn btn-small" data-mpv="recirculate">Recirculate</button>
+              <button class="btn btn-small" data-mpv="waste">Waste</button>
+            </div>
+            <button class="btn btn-small btn-secondary" id="btn-plumb-fit" type="button">Fit</button>
+            <button class="btn btn-small btn-ghost" id="btn-plumb-delete" type="button" disabled>Delete selected</button>
+          </div>
+
+          <div class="plumb-alerts" id="plumb-alerts" aria-live="polite"></div>
+
+          <svg id="plumb-svg" class="plumb-svg" role="img" aria-label="Plumbing visualizer canvas"></svg>
+
+          <div class="plumb-legend">
+            <span class="lg lg-pressure"></span> Pressure
+            <span class="lg lg-suction"></span> Suction
+            <span class="lg lg-waste"></span> Waste / backwash
+            <span class="lg lg-idle"></span> Idle (pump off)
+            <span class="muted small" style="margin-left:auto">Scroll to zoom · Drag empty space to pan · Right-click while drawing pipe to cancel</span>
+          </div>
+        </div>
+
+        <!-- Right: Selected component properties -->
+        <aside class="plumb-specs" aria-label="Equipment specifications">
+          <h3>Equipment Specs</h3>
+          <div id="specs-empty" class="muted small">
+            Select a component on the canvas to assign equipment type/model and inspect properties.
+          </div>
+          <div id="specs-panel" hidden>
+            <div class="specs-header">
+              <strong id="specs-title">—</strong>
+              <span id="specs-type" class="muted small"></span>
+            </div>
+
+            <!-- Valve / pump state controls -->
+            <div id="specs-state-controls" class="specs-state" hidden></div>
+
+            <!-- Spec fields -->
+            <div id="specs-fields" class="specs-fields"></div>
+
+            <div class="specs-actions">
+              <button class="btn btn-small btn-ghost" id="specs-delete" type="button">Delete component</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-goto="3d">← Back</button>
         <button class="btn btn-primary" type="button" data-goto="concerns">Continue to Concerns →</button>
       </div>
     </section>
@@ -355,7 +584,7 @@
       <div id="concerns-list" class="concerns-list" aria-label="Concern findings"></div>
 
       <div class="form-actions">
-        <button class="btn btn-secondary" type="button" data-goto="3d">← Back</button>
+        <button class="btn btn-secondary" type="button" data-goto="plumbing">← Back</button>
         <button class="btn btn-primary" type="button" data-goto="export">Continue to Export →</button>
       </div>
     </section>
@@ -429,9 +658,13 @@
           <li><strong>Site &amp; Aerial</strong> — geocode the lot, place the pool on the aerial map.</li>
           <li><strong>Design</strong> — edit pool shell, features, decking, safety features, and setbacks.</li>
           <li><strong>3D View</strong> — orbit the model for the customer hero rendering.</li>
-          <li><strong>Concerns</strong> — review findings for safety, setbacks, drainage, AHJ coverage.</li>
+          <li><strong>Plumbing</strong> — drag-build the equipment plumbing, animate flow, simulate backwash, and assign equipment specs.</li>
+          <li><strong>Concerns</strong> — review findings for safety, setbacks, drainage, plumbing, AHJ coverage.</li>
           <li><strong>Export</strong> — generate the bid package PDF + a separate internal concern PDF.</li>
         </ol>
+
+        <h3>Plumbing visualizer</h3>
+        <p>Drag components from the palette onto the canvas. Click a colored port (suction = light blue, pressure = deep blue, waste = red), then click a second port to connect a pipe. Click any component to assign brand, model, and specs in the right sidebar. Hit the pump On/Off button to animate flow; switch the multiport valve to <em>backwash</em> to reverse flow through the filter and route to the waste line. Right-click while drawing a pipe to cancel.</p>
 
         <h3>Keyboard shortcuts</h3>
         <ul>
@@ -476,6 +709,8 @@
   <script src="js/editor2d.js"></script>
   <script src="js/editor3d.js"></script>
   <script src="js/rules.js"></script>
+  <script src="js/plumbing.js"></script>
+  <script src="js/plumbing_view.js"></script>
   <script src="js/export.js"></script>
   <script src="js/app.js"></script>
 </body>

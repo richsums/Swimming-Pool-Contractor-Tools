@@ -243,6 +243,134 @@
       'high'
     ));
 
+    // ---- 9b. Plumbing — only evaluate if user has placed components
+    const plumb = project.plumbing || { components: {}, pipes: {} };
+    const comps = Object.values(plumb.components);
+    if (comps.length > 0) {
+      const byRole = {};
+      comps.forEach((c) => {
+        const def = (global.Plumbing && Plumbing.componentDef && Plumbing.componentDef(c.type)) || null;
+        if (!def) return;
+        (byRole[def.role] = byRole[def.role] || []).push(c);
+      });
+
+      // Need a pump
+      if (!byRole.pump || !byRole.pump.length) {
+        findings.push(mk(
+          'plumb-no-pump',
+          SEV.HARD,
+          'Plumbing',
+          'No pump on the plumbing layout. Circulation system cannot run.',
+          'Hydraulics design',
+          'Add a pump on the equipment pad.',
+          'high'
+        ));
+      }
+      // Need a filter
+      if (!byRole.filter || !byRole.filter.length) {
+        findings.push(mk(
+          'plumb-no-filter',
+          SEV.HARD,
+          'Plumbing',
+          'No filter on the layout. Pool water cannot be filtered.',
+          'Hydraulics design',
+          'Add a cartridge, DE, or sand filter downstream of the pump.',
+          'high'
+        ));
+      }
+      // Sand/DE filter requires a multiport (backwash) valve
+      const sandFilter = (byRole.filter || []).find((c) => c.props && (c.props.type === 'sand' || c.props.type === 'DE'));
+      const hasMpv = !!(byRole['valve-multiport'] && byRole['valve-multiport'].length);
+      if (sandFilter && !hasMpv) {
+        findings.push(mk(
+          'plumb-no-mpv',
+          SEV.WARN,
+          'Plumbing',
+          'Sand/DE filter is selected but no multiport (backwash) valve is on the layout. Filter cannot be backwashed.',
+          'Manufacturer & filter type requirement',
+          'Add a multiport valve between the pump and the filter, or route through a separate backwash valve.',
+          'high'
+        ));
+      }
+      // MPV without waste line
+      if (hasMpv) {
+        const hasWaste = comps.some((c) => c.type === 'wasteLine');
+        if (!hasWaste) {
+          findings.push(mk(
+            'plumb-no-waste',
+            SEV.WARN,
+            'Plumbing',
+            'Multiport valve is present but no waste line is connected. Backwash flow has no discharge route.',
+            'Hydraulics design + local wastewater code',
+            'Add a waste line component and connect it to the MPV waste port.',
+            'medium'
+          ));
+        }
+      }
+      // Heater without check valve downstream of salt cell / chlorinator (recommended)
+      const hasHeater = comps.some((c) => c.type === 'heater');
+      const hasSalt = comps.some((c) => c.type === 'saltCell');
+      const hasCheck = comps.some((c) => c.type === 'checkValve');
+      if (hasHeater && hasSalt && !hasCheck) {
+        findings.push(mk(
+          'plumb-heater-check',
+          SEV.ADV,
+          'Plumbing',
+          'Heater and salt chlorine cell are on the same loop with no check valve. Acidic backflow can damage the heater heat exchanger.',
+          'Manufacturer installation guidance (Pentair, Raypak, Jandy)',
+          'Install a check valve between the heater outlet and the salt cell to prevent backflow.',
+          'high'
+        ));
+      }
+      // No returns
+      const hasReturn = comps.some((c) => {
+        const def = global.Plumbing && Plumbing.componentDef && Plumbing.componentDef(c.type);
+        return def && def.role === 'sink' && c.type !== 'wasteLine';
+      });
+      if (!hasReturn) {
+        findings.push(mk(
+          'plumb-no-return',
+          SEV.WARN,
+          'Plumbing',
+          'No return outlets (wall returns, jets, or features) on the layout. Water has nowhere to go after the equipment pad.',
+          'Hydraulics design',
+          'Add at least two wall returns or equivalent return paths.',
+          'high'
+        ));
+      }
+      // No suction sources
+      const hasSource = comps.some((c) => {
+        const def = global.Plumbing && Plumbing.componentDef && Plumbing.componentDef(c.type);
+        return def && def.role === 'source' && c.type !== 'autofill';
+      });
+      if (!hasSource) {
+        findings.push(mk(
+          'plumb-no-source',
+          SEV.HARD,
+          'Plumbing',
+          'No suction source (skimmer or main drain) on the layout.',
+          'Hydraulics design + CA HSC §115928 (suction)',
+          'Add at least one skimmer plus a VGB-compliant dual main drain.',
+          'high'
+        ));
+      }
+      // VGB single drain warning
+      const mds = comps.filter((c) => c.type === 'mainDrain');
+      mds.forEach((md) => {
+        if (md.props && md.props.dualMainDrain === false) {
+          findings.push(mk(
+            'plumb-vgb-' + md.id,
+            SEV.WARN,
+            'Plumbing / Safety',
+            'A main drain is marked as a single suction outlet without VGB-compliant alternate suction relief.',
+            '15 U.S.C. Chapter 106 (Virginia Graeme Baker Pool & Spa Safety Act)',
+            'Use dual main drains spaced ≥3 ft apart, or specify an approved single-suction VGB-compliant cover with anti-entrapment design.',
+            'high'
+          ));
+        }
+      });
+    }
+
     // ---- 10. Pool electrical bonding (NEC 680.26)
     findings.push(mk(
       'nec-bonding',

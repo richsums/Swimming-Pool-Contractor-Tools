@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const STEPS = ['setup', 'sketch', 'site', 'design', '3d', 'concerns', 'export'];
+  const STEPS = ['setup', 'sketch', 'site', 'design', '3d', 'plumbing', 'concerns', 'export'];
 
   // --- App state ---
   const App = {
@@ -32,6 +32,7 @@
     bindStepper();
     bindModals();
     bindKeyboard();
+    bindPlumbing();
 
     // Resume previous active project if any
     const active = Model.active();
@@ -70,6 +71,7 @@
     if (step === 'site') initSiteIfNeeded();
     if (step === 'design') renderDesign();
     if (step === '3d') initThreeIfNeeded();
+    if (step === 'plumbing') initPlumbingIfNeeded();
     if (step === 'concerns') runRules();
 
     // Focus main for screen readers
@@ -739,6 +741,320 @@
     App.project = Model.get(App.project.id);
     refreshProjectBar();
     U.toast('Revision saved.', 'success');
+  }
+
+  // ============================================================
+  // Plumbing visualizer
+  // ============================================================
+  let plumbingMounted = false;
+  let simTimer = null;
+
+  function bindPlumbing() {
+    // Palette drag-drop
+    U.$$('.palette-item').forEach((item) => {
+      item.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', item.dataset.type);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+    });
+
+    // System controls
+    U.$('#btn-pump').addEventListener('click', togglePump);
+
+    U.$$('[data-mpv]').forEach((btn) => {
+      btn.addEventListener('click', () => setAllMpv(btn.dataset.mpv));
+    });
+
+    U.$('#btn-plumb-fit').addEventListener('click', () => PlumbingView.fit());
+    U.$('#btn-plumb-delete').addEventListener('click', () => {
+      PlumbingView.deleteSelected();
+      runSimulation();
+    });
+    U.$('#btn-plumb-sample').addEventListener('click', loadSamplePlumbing);
+    U.$('#btn-plumb-clear').addEventListener('click', () => {
+      if (!App.project) return;
+      if (!confirm('Clear all plumbing components and pipes for this project?')) return;
+      App.project.plumbing = Plumbing.emptyNetwork();
+      Model.save(App.project);
+      PlumbingView.setProject(App.project);
+      runSimulation();
+    });
+
+    U.$('#specs-delete').addEventListener('click', () => {
+      PlumbingView.deleteSelected();
+      onSelectComponent(null);
+      runSimulation();
+    });
+  }
+
+  function initPlumbingIfNeeded() {
+    if (!App.project) return;
+    if (!App.project.plumbing) {
+      App.project.plumbing = Plumbing.emptyNetwork();
+      Model.save(App.project);
+    }
+    if (!plumbingMounted) {
+      PlumbingView.mount(U.$('#plumb-svg'), {
+        onChange: () => {
+          if (App.project) Model.save(App.project);
+          runSimulation();
+        },
+        onSelect: onSelectComponent,
+      });
+      plumbingMounted = true;
+    }
+    PlumbingView.setProject(App.project);
+    refreshPumpButton();
+    runSimulation();
+  }
+
+  function togglePump() {
+    if (!App.project || !App.project.plumbing) return;
+    const sys = App.project.plumbing.system;
+    sys.pumpOn = !sys.pumpOn;
+    // Toggle all pump components too
+    Object.values(App.project.plumbing.components).forEach((c) => {
+      const def = Plumbing.componentDef(c.type);
+      if (def && def.role === 'pump') c.state = sys.pumpOn ? 'on' : 'off';
+    });
+    Model.save(App.project);
+    refreshPumpButton();
+    PlumbingView.refresh();
+    runSimulation();
+  }
+
+  function refreshPumpButton() {
+    if (!App.project || !App.project.plumbing) return;
+    const on = !!App.project.plumbing.system.pumpOn;
+    U.$('#pump-state-dot').classList.toggle('on', on);
+    U.$('#pump-state-dot').classList.toggle('off', !on);
+    U.$('#pump-state-label').textContent = on ? 'Pump On' : 'Pump Off';
+  }
+
+  function setAllMpv(state) {
+    if (!App.project || !App.project.plumbing) return;
+    let any = false;
+    Object.values(App.project.plumbing.components).forEach((c) => {
+      const def = Plumbing.componentDef(c.type);
+      if (def && def.role === 'valve-multiport') {
+        c.state = state;
+        any = true;
+      }
+    });
+    if (!any) {
+      U.toast('No multiport valve placed yet. Add one from the Valves palette.', 'warning');
+      return;
+    }
+    App.project.plumbing.system.mpvPosition = state;
+    U.$$('[data-mpv]').forEach((b) => b.classList.toggle('active', b.dataset.mpv === state));
+    Model.save(App.project);
+    PlumbingView.refresh();
+    runSimulation();
+    U.toast('Multiport valve → ' + state.toUpperCase(), 'info', 1800);
+  }
+
+  function runSimulation() {
+    if (!App.project || !App.project.plumbing) return;
+    const sim = Plumbing.simulate(App.project.plumbing);
+    PlumbingView.setSimulation(sim);
+
+    // Render alerts
+    const alertsEl = U.$('#plumb-alerts');
+    alertsEl.innerHTML = '';
+    sim.alerts.forEach((a) => {
+      const el = U.el('div', { class: 'alert' }, a);
+      alertsEl.appendChild(el);
+    });
+  }
+
+  function onSelectComponent(c) {
+    const empty = U.$('#specs-empty');
+    const panel = U.$('#specs-panel');
+    U.$('#btn-plumb-delete').disabled = !c;
+    if (!c) {
+      empty.hidden = false;
+      panel.hidden = true;
+      return;
+    }
+    const def = Plumbing.componentDef(c.type);
+    empty.hidden = true;
+    panel.hidden = false;
+    U.$('#specs-title').textContent = def.label;
+    U.$('#specs-type').textContent = c.type;
+
+    // State controls
+    const stateBox = U.$('#specs-state-controls');
+    stateBox.innerHTML = '';
+    if (def.role === 'pump') {
+      stateBox.hidden = false;
+      const onBtn = U.el('button', { class: 'btn btn-small' + (c.state === 'on' ? ' active' : ''), type: 'button' }, 'On');
+      const offBtn = U.el('button', { class: 'btn btn-small' + (c.state === 'off' ? ' active' : ''), type: 'button' }, 'Off');
+      onBtn.addEventListener('click', () => { c.state = 'on'; App.project.plumbing.system.pumpOn = true; Model.save(App.project); refreshPumpButton(); PlumbingView.refresh(); runSimulation(); onSelectComponent(c); });
+      offBtn.addEventListener('click', () => { c.state = 'off'; App.project.plumbing.system.pumpOn = false; Model.save(App.project); refreshPumpButton(); PlumbingView.refresh(); runSimulation(); onSelectComponent(c); });
+      stateBox.appendChild(onBtn);
+      stateBox.appendChild(offBtn);
+    } else if (def.role === 'valve-multiport') {
+      stateBox.hidden = false;
+      ['filter', 'backwash', 'rinse', 'recirculate', 'waste', 'closed'].forEach((s) => {
+        const b = U.el('button', { class: 'btn btn-small' + (c.state === s ? ' active' : ''), type: 'button' }, s);
+        b.addEventListener('click', () => { c.state = s; Model.save(App.project); PlumbingView.refresh(); runSimulation(); onSelectComponent(c); });
+        stateBox.appendChild(b);
+      });
+    } else if (def.role === 'valve-3way') {
+      stateBox.hidden = false;
+      ['a', 'b', 'both', 'closed'].forEach((s) => {
+        const b = U.el('button', { class: 'btn btn-small' + (c.state === s ? ' active' : ''), type: 'button' }, s);
+        b.addEventListener('click', () => { c.state = s; Model.save(App.project); PlumbingView.refresh(); runSimulation(); onSelectComponent(c); });
+        stateBox.appendChild(b);
+      });
+    } else if (def.role === 'valve-2way') {
+      stateBox.hidden = false;
+      ['open', 'closed'].forEach((s) => {
+        const b = U.el('button', { class: 'btn btn-small' + (c.state === s ? ' active' : ''), type: 'button' }, s);
+        b.addEventListener('click', () => { c.state = s; Model.save(App.project); PlumbingView.refresh(); runSimulation(); onSelectComponent(c); });
+        stateBox.appendChild(b);
+      });
+    } else {
+      stateBox.hidden = true;
+    }
+
+    // Spec fields
+    const fieldsBox = U.$('#specs-fields');
+    fieldsBox.innerHTML = '';
+    const props = c.props || {};
+    const fieldDefs = specFieldsFor(def, c);
+    fieldDefs.forEach((f) => {
+      const field = U.el('div', { class: 'field' });
+      field.appendChild(U.el('label', { for: 'specf-' + f.key }, f.label));
+      let input;
+      if (f.kind === 'textarea') {
+        input = U.el('textarea', { id: 'specf-' + f.key, rows: 2 });
+      } else if (f.kind === 'select') {
+        input = U.el('select', { id: 'specf-' + f.key });
+        f.options.forEach((opt) => {
+          const o = document.createElement('option');
+          o.value = opt; o.textContent = opt;
+          if ((props[f.key] || '') === opt) o.selected = true;
+          input.appendChild(o);
+        });
+      } else if (f.kind === 'number') {
+        input = U.el('input', { id: 'specf-' + f.key, type: 'number', step: f.step || 1 });
+      } else if (f.kind === 'checkbox') {
+        input = U.el('input', { id: 'specf-' + f.key, type: 'checkbox' });
+      } else {
+        input = U.el('input', { id: 'specf-' + f.key, type: 'text' });
+      }
+      if (f.kind === 'checkbox') {
+        input.checked = !!props[f.key];
+        input.addEventListener('change', () => {
+          c.props[f.key] = input.checked;
+          Model.save(App.project);
+        });
+      } else if (f.kind !== 'select') {
+        input.value = props[f.key] != null ? props[f.key] : '';
+        input.addEventListener('input', () => {
+          c.props[f.key] = f.kind === 'number' ? parseFloat(input.value) || 0 : input.value;
+          Model.save(App.project);
+          PlumbingView.refresh();
+        });
+      } else {
+        input.addEventListener('change', () => {
+          c.props[f.key] = input.value;
+          Model.save(App.project);
+          PlumbingView.refresh();
+        });
+      }
+      field.appendChild(input);
+      fieldsBox.appendChild(field);
+    });
+  }
+
+  function specFieldsFor(def, c) {
+    const common = [
+      { key: 'brand', label: 'Brand / Manufacturer', kind: 'text' },
+      { key: 'model', label: 'Model number', kind: 'text' },
+    ];
+    const byRole = {
+      'pump': [
+        { key: 'hp', label: 'Horsepower (HP)', kind: 'number', step: 0.25 },
+        { key: 'type', label: 'Type', kind: 'select', options: ['single-speed', 'two-speed', 'variable-speed'] },
+        { key: 'voltage', label: 'Voltage', kind: 'select', options: ['115', '230'] },
+      ],
+      'filter': [
+        { key: 'type', label: 'Filter type', kind: 'select', options: ['cartridge', 'DE', 'sand'] },
+        { key: 'area', label: 'Area (sq ft) / capacity', kind: 'number' },
+      ],
+      'pass-through': [
+        { key: 'btu', label: 'BTU (heater)', kind: 'number' },
+        { key: 'fuel', label: 'Fuel / power', kind: 'select', options: ['natural-gas', 'propane', 'electric-heat-pump'] },
+        { key: 'poolGallons', label: 'Pool gallons (salt cell sizing)', kind: 'number' },
+      ],
+      'valve-multiport': [],
+      'valve-3way': [],
+      'valve-2way': [],
+      'source': [
+        { key: 'flowGpm', label: 'Suction flow (GPM)', kind: 'number' },
+        { key: 'dualMainDrain', label: 'Dual main drains (VGB)', kind: 'checkbox' },
+        { key: 'vgbCompliant', label: 'VGB-compliant cover', kind: 'checkbox' },
+      ],
+      'sink': [
+        { key: 'flowGpm', label: 'Flow rating (GPM)', kind: 'number' },
+        { key: 'hasLED', label: 'LED-illuminated', kind: 'checkbox' },
+      ],
+    };
+    // Pick role-specific fields and filter to known props for this component
+    const roleFields = (byRole[def.role] || []).filter((f) => def.defaultProps && (f.key in def.defaultProps || typeof c.props[f.key] !== 'undefined'));
+    return common
+      .concat(roleFields)
+      .concat([{ key: 'notes', label: 'Notes', kind: 'textarea' }]);
+  }
+
+  // Pre-built sample layout — a standard single-pump residential system
+  function loadSamplePlumbing() {
+    if (!App.project) return;
+    const net = Plumbing.emptyNetwork();
+    function add(type, x, y, props, state) {
+      const c = Plumbing.addComponent(net, type, x, y);
+      if (props) Object.assign(c.props, props);
+      if (state) c.state = state;
+      return c;
+    }
+    const skimmer = add('skimmer', 240, 180);
+    const mainDrain = add('mainDrain', 240, 360);
+    const suctionValve = add('valve3way', 480, 280, null, 'both');
+    const pump = add('pump', 820, 200, { brand: 'Pentair', model: 'IntelliFlo VSF', hp: 3, type: 'variable-speed' }, 'off');
+    const mpv = add('multiportValve', 820, 360, { brand: 'Pentair', model: '2" Side Mount' }, 'filter');
+    const filter = add('filter', 940, 480, { brand: 'Pentair', model: 'Clean & Clear Plus 320', type: 'cartridge', area: 320 });
+    const heater = add('heater', 1020, 200, { brand: 'Raypak', model: '406A', btu: 406000, fuel: 'natural-gas' });
+    const saltCell = add('saltCell', 1110, 280, { brand: 'Pentair', model: 'IntelliChlor IC40', poolGallons: 40000 });
+    const ret1 = add('return', 540, 240);
+    const ret2 = add('return', 540, 320);
+    const ret3 = add('return', 540, 400);
+    const laminar = add('laminarJet', 380, 100, { brand: 'Pentair', model: 'Magicstream Laminar', hasLED: true });
+    const waste = add('wasteLine', 970, 580);
+
+    // Pipes (suction side)
+    Plumbing.addPipe(net, skimmer.id, 'out', suctionValve.id, 'a');
+    Plumbing.addPipe(net, mainDrain.id, 'out', suctionValve.id, 'b');
+    Plumbing.addPipe(net, suctionValve.id, 'common', pump.id, 'in');
+    // Pump -> MPV -> Filter
+    Plumbing.addPipe(net, pump.id, 'out', mpv.id, 'in');
+    Plumbing.addPipe(net, mpv.id, 'out', filter.id, 'in');
+    // Filter -> Heater -> Salt Cell -> Returns
+    Plumbing.addPipe(net, filter.id, 'out', heater.id, 'in');
+    Plumbing.addPipe(net, heater.id, 'out', saltCell.id, 'in');
+    Plumbing.addPipe(net, saltCell.id, 'out', ret1.id, 'in');
+    Plumbing.addPipe(net, ret1.id, 'in', ret2.id, 'in');
+    Plumbing.addPipe(net, ret2.id, 'in', ret3.id, 'in');
+    Plumbing.addPipe(net, saltCell.id, 'out', laminar.id, 'in');
+    // Waste line off the MPV
+    Plumbing.addPipe(net, mpv.id, 'waste', waste.id, 'in');
+
+    App.project.plumbing = net;
+    Model.save(App.project);
+    PlumbingView.setProject(App.project);
+    runSimulation();
+    U.toast('Sample single-pump system loaded. Try toggling the pump and switching MPV to backwash.', 'success', 5000);
   }
 
   // ============================================================

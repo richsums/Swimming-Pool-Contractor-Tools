@@ -13,8 +13,9 @@ An AI-assisted bid-phase design tool for California swimming pool contractors. C
 3. **Site & aerial** — geocode the address and overlay the proposed pool on an aerial map (Esri World Imagery), with scale, north arrow, and imagery source disclosure.
 4. **Design** — edit the parametric pool shell, spa, steps, bench, shelf, water feature, decking, equipment pad, safety features, and setbacks. Dimensions update live.
 5. **3D View** — Three.js scene driven by the same parametric model. Orbit, switch between isometric/top/front/hero presets, and capture renderings.
-6. **Concerns** — California rules engine evaluates safety features (CA HSC §115922), setbacks, equipment access, drainage, septic, imagery confidence, AHJ coverage, VGB drain covers (15 USC ch 106), and NEC 680.26 bonding. Findings include severity, source/rule basis, confidence, and recommended action.
-7. **Export** — generate a professional PDF bid package (Cover, Site, Vicinity/Aerial, Pool Geometry, Details, Isometric). The concern report is exported separately and is not included on customer-facing sheets.
+6. **Plumbing Visualizer** — drag-and-drop component palette (pumps, filters, multiport / 3-way / 2-way / check valves, heaters, salt cells, UV, skimmers, main drains, returns, laminar jets, spa jets, waterfalls, waste line). Click ports to connect pipes. Toggle the pump and switch valve positions to animate suction/pressure/waste flow in real time. Backwash mode reverses flow through the filter and routes water to the waste line. Each component carries editable equipment specs (brand, model, HP, GPM, BTU, filter area, voltage, fuel type).
+7. **Concerns** — California rules engine evaluates safety features (CA HSC §115922), setbacks, equipment access, drainage, septic, imagery confidence, AHJ coverage, VGB drain covers (15 USC ch 106), NEC 680.26 bonding, plus plumbing-specific findings (no pump, no filter, sand/DE filter without multiport, MPV with no waste line, heater downstream of salt cell without a check valve, no suction source, no returns, single main drain without VGB compliance). Findings include severity, source/rule basis, confidence, and recommended action.
+8. **Export** — generate a professional PDF bid package (Cover, Site, Vicinity/Aerial, Pool Geometry, Details, Isometric). The concern report is exported separately and is not included on customer-facing sheets.
 
 ## Architecture (client-side)
 
@@ -28,9 +29,11 @@ Pure static site — no backend required. Modules:
 | `js/geospatial.js` | Nominatim geocoding + Leaflet map + aerial overlay |
 | `js/editor2d.js` | SVG site/pool plan editor with drag handles, dimensions, title block |
 | `js/editor3d.js` | Three.js scene from parametric model, camera presets, snapshots |
-| `js/rules.js` | California concern engine; rule versioning; severity/category/disposition |
+| `js/rules.js` | California concern engine; rule versioning; severity/category/disposition; plumbing findings |
+| `js/plumbing.js` | Plumbing data model (network graph), component library, flow simulation (BFS through open valves, backwash routing) |
+| `js/plumbing_view.js` | SVG plumbing canvas: drag-drop palette, click-to-connect ports, pan/zoom, animated flow |
 | `js/export.js` | jsPDF-based drawing package + separate concern report PDF |
-| `js/app.js` | Routing, lifecycle, UI wiring, keyboard shortcuts |
+| `js/app.js` | Routing, lifecycle, UI wiring, keyboard shortcuts, plumbing controls |
 
 External libraries (CDN): Leaflet 1.9.4, Three.js r128, jsPDF 2.5.
 
